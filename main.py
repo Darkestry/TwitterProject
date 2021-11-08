@@ -4,13 +4,13 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 
-consumer_key = "iOWKyxGh5PrZwGR6w99Y1hbm1"
-consumer_secret = "XszI78cpBY4ryDdHnSl1X4QCHNZ78mNFlQaXhrYkKZgw5zERDN"
+consumer_key = ""
+consumer_secret = ""
 
-access_token = "14517043-vXV9ySIfSN5Orho3DRQD6xeJ4ErRbcw0QrpIUJZz0"
-access_token_secret = "lJN8xOtbkUwUk2oBO5yA6CWM1n74EafIE1E2S7x1M6T5V"
+access_token = ""
+access_token_secret = ""
 
-bearer_token = "AAAAAAAAAAAAAAAAAAAAACLxVAEAAAAAWSP6vNtCX%2BCHnWHe4%2BJKJS%2F5Suo%3Dk8eepd7q4hAk7IHFqHDSBPqwp2EdDcnzh2l79SN6Z6KZqghZ0w"
+bearer_token = ""
 
 search_url = "https://api.twitter.com/2/tweets/counts/all"
 
