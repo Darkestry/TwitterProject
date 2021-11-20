@@ -4,6 +4,9 @@ from time import sleep
 import requests
 import pandas as pd
 import matplotlib.pyplot as plt
+from selectolax.parser import HTMLParser
+from wordcloud import WordCloud, STOPWORDS
+from datetime import datetime
 
 consumer_key = "iOWKyxGh5PrZwGR6w99Y1hbm1"
 consumer_secret = "XszI78cpBY4ryDdHnSl1X4QCHNZ78mNFlQaXhrYkKZgw5zERDN"
@@ -57,44 +60,65 @@ def total_tweet_count():
 
 
 def main():
-    queries = []
-    data = {"Party": ["CDU", "CSU", "SPD", "GRÜNE", "FDP", "AFD", "DIE LINKE"]}
-
     hashtag_list = ["#cdu", "#csu", "#spd", "#gruene", "#fdp", "#afd", "#dielinke"]
+    tweet_list = []
+    counter = 0
     for hashtag in hashtag_list:
-        query = {'query': hashtag, 'start_time': '2021-07-30T00:00:00Z', 'end_time': '2021-08-01T00:00:00Z', 'max_results': '500'}
+        print(f"Processing {hashtag}")
+        query = {'query': hashtag, 'start_time': '2021-07-01T00:00:00Z', 'end_time': '2021-10-01T00:00:00Z', 'max_results': '500'}
         json_response = connect_to_endpoint(search_url2, query)
-        tweet_list = []
-        for tweet in json_response["data"]:
-            tweet_list.append((hashtag, tweet["text"]))
-        sleep(2)
+        try:
+            for tweet in json_response["data"]:
+                tweet_list.append((hashtag, tweet["text"]))
+                counter += 1
+                if counter % 5000 == 0:
+                    print(f"Processed {counter} tweets...")
+        except Exception as e:
+            print(repr(e))
+        sleep(3)
         while len(json_response["meta"]) > 3:
-            query = {'query': hashtag, 'start_time': '2021-07-31T22:00:00Z', 'end_time': '2021-08-01T00:00:00Z',
+            query = {'query': hashtag, 'start_time': '2021-07-01T00:00:00Z', 'end_time': '2021-10-01T00:00:00Z',
                      'max_results': '500', 'next_token': json_response["meta"]["next_token"]}
             json_response = connect_to_endpoint(search_url2, query)
             if json_response["meta"]["result_count"] > 0:
-                for tweet in json_response["data"]:
-                    tweet_list.append((hashtag, tweet["text"]))
-            sleep(2)
-    df = pd.DataFrame(tweet_list, columns=['Hashtag', 'Text'])
-    pd.options.display.max_colwidth = 200
-    print(df.head())
+                try:
+                    for tweet in json_response["data"]:
+                        tweet_list.append((hashtag, tweet["text"]))
+                        counter += 1
+                        if counter % 5000 == 0:
+                            print(f"Processed {counter} tweets...")
+                except Exception as e:
+                    print(repr(e))
+            sleep(3)
+        print(f"Processed {hashtag}")
 
-    regex_pattern = re.compile(pattern="["
-                                       u"\U0001F600-\U0001F64F"  # emoticons
-                                       u"\U0001F300-\U0001F5FF"  # symbols & pictographs
-                                       u"\U0001F680-\U0001F6FF"  # transport & map symbols
-                                       u"\U0001F1E0-\U0001F1FF"  # flags (iOS)
-                                       "]+", flags=re.UNICODE)
-    match = ""
-    for text in df["Text"]:
-        match += re.sub(regex_pattern, '', text)  # replaces pattern with ''
-        pattern = re.compile(r'(https?://)?(www\.)?(\w+\.)?(\w+)(\.\w+)(/.+)?')
-        match = re.sub(pattern, '', text)
-        re_list = ['@[A-Za-z0–9_]+', '#']
-        combined_re = re.compile( '|'.join( re_list) )
-        match = re.sub(combined_re,'',text)
-    print(match)
+    df = pd.DataFrame(tweet_list, columns=['Hashtag', 'Text'])
+    pd.options.display.max_colwidth = 500
+
+    df.apply(lambda x: HTMLParser(x['Text']).body.text(separator=' ').replace('\n', ' '), axis=1)
+    df['Text'] = df['Text'].str.replace('[^\w\s#@/:%.,_-]', '', flags=re.UNICODE, regex=True)  #
+    df['Text'] = df['Text'].replace(r'http\S+', '', regex=True).replace(r'www\S+', '', regex=True)  # remove URLs from tweets
+    df['Text'] = df['Text'].replace('@[A-Za-z0–9_]+', '', regex=True)
+    df['Text'] = df['Text'].replace('#[A-Za-z0–9_]+', '', regex=True)
+    df['Text'] = df['Text'].str.replace('\n', '', regex=True)
+    df['Text'] = df['Text'].str.replace('\t', ' ')
+    df['Text'] = df['Text'].str.replace(' {2,}', ' ', regex=True)
+    df['Text'] = df['Text'].str.strip()
+    df.dropna()
+    #  df.to_csv("tweets3.csv", sep='\t', encoding='utf-8', index=False)    saves all tweets to a .csv file 
+
+    stopwords = set(STOPWORDS)
+    with open("stopwords.txt", "r") as fp:
+        stopword_list = [''.join(line.strip("\n")) for line in fp.readlines()]
+    stopwords.update(stopword_list)
+
+    for tag in hashtag_list:
+        wordcloud = WordCloud(width=1600, stopwords=stopwords, height=800, max_font_size=200, max_words=50, collocations=False, background_color='black').generate(str(df[df['Hashtag'].str.match(tag)]["Text"]))
+        plt.figure(figsize=(40, 30))
+        plt.imshow(wordcloud, interpolation="bilinear")
+        plt.axis("off")
+        plt.title(f"Word cloud for hashtag: {tag}\nTime inverval: {query['start_time']} until {query['end_time']}", fontdict={'fontsize': 75})
+        plt.show()
 
 
 if __name__ == "__main__":
