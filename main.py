@@ -6,7 +6,6 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from selectolax.parser import HTMLParser
 from wordcloud import WordCloud, STOPWORDS
-from datetime import datetime
 
 consumer_key = ""
 consumer_secret = ""
@@ -18,6 +17,10 @@ bearer_token = ""
 
 search_url = "https://api.twitter.com/2/tweets/counts/all"
 search_url2 = "https://api.twitter.com/2/tweets/search/all"
+
+hashtag_list = ["#cdu", "#csu", "#spd", "#gruene", "#fdp", "#afd", "#dielinke"]
+start_time = "2021-07-01T00:00:00Z"
+end_time = "2021-10-01T00:00:00Z"
 
 
 def bearer_oauth(r):
@@ -60,12 +63,11 @@ def total_tweet_count():
 
 
 def main():
-    hashtag_list = ["#cdu", "#csu", "#spd", "#gruene", "#fdp", "#afd", "#dielinke"]
     tweet_list = []
     counter = 0
     for hashtag in hashtag_list:
         print(f"Processing {hashtag}")
-        query = {'query': hashtag, 'start_time': '2021-07-01T00:00:00Z', 'end_time': '2021-10-01T00:00:00Z', 'max_results': '500'}
+        query = {'query': hashtag, 'start_time': start_time, 'end_time': end_time, 'max_results': '500'}
         json_response = connect_to_endpoint(search_url2, query)
         try:
             for tweet in json_response["data"]:
@@ -77,7 +79,7 @@ def main():
             print(repr(e))
         sleep(3)
         while len(json_response["meta"]) > 3:
-            query = {'query': hashtag, 'start_time': '2021-07-01T00:00:00Z', 'end_time': '2021-10-01T00:00:00Z',
+            query = {'query': hashtag, 'start_time': start_time, 'end_time': end_time,
                      'max_results': '500', 'next_token': json_response["meta"]["next_token"]}
             json_response = connect_to_endpoint(search_url2, query)
             if json_response["meta"]["result_count"] > 0:
@@ -105,21 +107,31 @@ def main():
     df['Text'] = df['Text'].str.replace(' {2,}', ' ', regex=True)
     df['Text'] = df['Text'].str.strip()
     df.dropna()
-    #  df.to_csv("tweets3.csv", sep='\t', encoding='utf-8', index=False)    saves all tweets to a .csv file 
+    #  df.to_csv("tweets_dielinke.csv", sep='\t', encoding='utf-8', index=False)
 
+
+def load_tweets_from_csv(party):
+    df = pd.read_csv(f"tweets_{party}.csv", encoding="utf-8", sep="\t")
+    return df
+
+
+def create_wordcloud(party):
+    df = load_tweets_from_csv(party)
     stopwords = set(STOPWORDS)
     with open("stopwords.txt", "r") as fp:
         stopword_list = [''.join(line.strip("\n")) for line in fp.readlines()]
     stopwords.update(stopword_list)
 
-    for tag in hashtag_list:
-        wordcloud = WordCloud(width=1600, stopwords=stopwords, height=800, max_font_size=200, max_words=50, collocations=False, background_color='black').generate(str(df[df['Hashtag'].str.match(tag)]["Text"]))
-        plt.figure(figsize=(40, 30))
-        plt.imshow(wordcloud, interpolation="bilinear")
-        plt.axis("off")
-        plt.title(f"Word cloud for hashtag: {tag}\nTime inverval: {query['start_time']} until {query['end_time']}", fontdict={'fontsize': 75})
-        plt.show()
+    wordcloud = WordCloud(width=1900, stopwords=stopwords, height=1000, max_font_size=175, max_words=50, collocations=False, background_color='black').generate(str(df[df['Hashtag'].str.match("#" + party)]["Text"]))
+    plt.figure(figsize=(50, 40))
+    plt.imshow(wordcloud, interpolation="bilinear")
+    plt.axis("off")
+    plt.title(f"Word cloud for hashtag: #{party}\nTime inverval: {start_time} until {end_time}", fontdict={'fontsize': 75})
+    plt.show()
 
 
 if __name__ == "__main__":
-    main()
+    parties = ["cdu", "csu", "spd", "gruene", "fdp", "afd", "dielinke"]
+    for party in parties:
+        create_wordcloud(party)  # possible parameters: #cdu, #csu, #spd, #gruene, #fdp, #afd, #dielinke
+
